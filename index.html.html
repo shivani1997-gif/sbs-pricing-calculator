@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SBS Pricing Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream:      #FAF6F0;
+    --warm-white: #FFF9F2;
+    --gold:       #C9973A;
+    --gold-light: #E8C97A;
+    --deep:       #2A1F14;
+    --brown:      #6B4C2A;
+    --muted:      #9C856A;
+    --card:       #FFFFFF;
+    --border:     #E8DDD0;
+    --green:      #2D6A43;
+    --red:        #8B2A1A;
+    --shadow:     0 2px 20px rgba(42,31,20,0.08);
+
+    /* iPad-friendly sizing */
+    --input-h:    52px;
+    --btn-h:      52px;
+    --font-base:  16px;
+    --font-label: 12px;
+    --font-note:  13px;
+    --radius:     12px;
+    --gap:        16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html { font-size: var(--font-base); }
+
+  body {
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: var(--cream);
+    color: var(--deep);
+    min-height: 100vh;
+    padding-bottom: 60px;
+    /* prevent bounce scroll from looking odd */
+    overscroll-behavior: none;
+  }
+
+  /* Gold top bar */
+  .top-bar {
+    height: 5px;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold));
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .page-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    text-align: center;
+    padding: 28px 0 0;
+    margin-bottom: 4px;
+  }
+  .logo-mark {
+    font-size: 11px; letter-spacing: 0.3em; color: var(--gold);
+    text-transform: uppercase; font-weight: 500; margin-bottom: 8px;
+  }
+  .header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px; font-weight: 700; color: var(--deep);
+  }
+  .header p { margin-top: 6px; font-size: 14px; color: var(--muted); }
+
+  /* ---- Tab bar ---- */
+  .tab-bar {
+    display: flex;
+    margin: 22px 0 0;
+    border-bottom: 2px solid var(--border);
+  }
+  .tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    transition: color 0.18s, border-color 0.18s;
+    -webkit-appearance: none;
+  }
+  .tab-btn .ti { font-size: 18px; }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 600; }
+
+  .tab-pane { display: none; padding-top: 20px; }
+  .tab-pane.active { display: block; }
+
+  /* ---- Cards ---- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 22px 20px 20px;
+    margin-bottom: var(--gap);
+    box-shadow: var(--shadow);
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px; font-weight: 600; color: var(--deep);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .badge {
+    background: var(--gold); color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 20px; flex-shrink: 0;
+  }
+
+  /* ---- Input grids ---- */
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+  .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--gap); }
+
+  /* iPad portrait: 2-col max for g3 */
+  @media (max-width: 700px) {
+    .g3 { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 440px) {
+    .g2, .g3 { grid-template-columns: 1fr; }
+  }
+
+  /* ---- Fields ---- */
+  .field { display: flex; flex-direction: column; gap: 7px; }
+
+  label.fl {
+    font-size: var(--font-label);
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .iw { position: relative; display: flex; align-items: center; }
+  .ip, .is {
+    position: absolute;
+    font-size: 13px; font-weight: 500; color: var(--muted);
+    pointer-events: none; user-select: none;
+  }
+  .ip { left: 14px; }
+  .is { right: 14px; }
+
+  input[type="number"],
+  input[type="text"] {
+    width: 100%;
+    height: var(--input-h);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--deep);
+    background: var(--warm-white);
+    transition: border-color 0.18s, box-shadow 0.18s;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  input.has-prefix  { padding-left: 32px; }
+  input.has-suffix  { padding-right: 44px; }
+  input.has-both    { padding-left: 32px; padding-right: 44px; }
+
+  input:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 4px rgba(201,151,58,0.14);
+  }
+
+  .field-note {
+    font-size: var(--font-note);
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .field-note strong { color: var(--brown); font-weight: 600; }
+  .field-note.hint { font-style: italic; }
+
+  /* ---- Opex strip ---- */
+  .opex-strip {
+    display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center;
+    background: var(--cream);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 13px 16px;
+    margin-top: 16px;
+  }
+  .opex-strip .oi { font-size: 14px; color: var(--muted); }
+  .opex-strip .oi strong { color: var(--brown); font-weight: 600; }
+  .opex-strip .od { color: var(--border); }
+
+  /* ---- Margin slider ---- */
+  .margin-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 18px;
+  }
+  .margin-val-display {
+    font-family: 'Playfair Display', serif;
+    font-size: 30px; font-weight: 700; color: var(--gold);
+  }
+  .margin-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .margin-desc { font-size: 14px; color: var(--muted); text-align: right; }
+  .margin-pct  { font-size: 13px; color: var(--muted); text-align: right; margin-top: 3px; }
+
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 6px; border-radius: 99px;
+    background: var(--border); outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--gold); border: 3px solid white;
+    box-shadow: 0 2px 10px rgba(201,151,58,0.45);
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--gold); border: 3px solid white;
+    box-shadow: 0 2px 10px rgba(201,151,58,0.45);
+    cursor: pointer;
+  }
+
+  .slider-labels { display: flex; justify-content: space-between; margin-top: 10px; }
+  .slider-labels span { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+  .trend-tags { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .trend-tag {
+    font-size: 14px; font-weight: 500;
+    padding: 10px 16px; border-radius: 24px;
+    border: 1.5px solid var(--border); color: var(--muted);
+    cursor: pointer; background: var(--warm-white);
+    transition: all 0.15s; user-select: none;
+    min-height: 44px; display: flex; align-items: center;
+  }
+  .trend-tag.active, .trend-tag:active {
+    background: var(--gold); color: white; border-color: var(--gold);
+  }
+
+  /* ---- Result card ---- */
+  .result-card {
+    background: var(--deep);
+    border-radius: 18px;
+    padding: 28px 22px;
+    margin-bottom: var(--gap);
+    position: relative; overflow: hidden;
+  }
+  .result-card::before {
+    content: ''; position: absolute;
+    top: -50px; right: -50px;
+    width: 150px; height: 150px; border-radius: 50%;
+    background: rgba(201,151,58,0.1);
+  }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr 1px 1fr;
+    position: relative; z-index: 1;
+  }
+  @media (max-width: 500px) {
+    .result-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+    .r-div { display: none; }
+  }
+  .r-div { background: rgba(255,255,255,0.1); }
+  .r-item { padding: 4px 18px; }
+  .r-item:first-child { padding-left: 4px; }
+  .r-item:last-child  { padding-right: 4px; text-align: right; }
+  .r-label {
+    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(255,255,255,0.4); font-weight: 500; margin-bottom: 8px;
+  }
+  .r-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px; font-weight: 700; color: #fff;
+  }
+  .r-value.accent { color: var(--gold-light); }
+  .r-value.big { font-size: 32px; }
+  .r-sub { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 4px; }
+
+  /* ---- Breakdown ---- */
+  .bk-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 15px;
+  }
+  .bk-row:last-child { border-bottom: none; }
+  .bk-label { color: var(--muted); }
+  .bk-val { font-weight: 600; color: var(--deep); font-variant-numeric: tabular-nums; }
+  .bk-sep { border-top: 1.5px solid var(--deep); margin: 4px 0; }
+  .bk-row.strong .bk-label { font-weight: 600; color: var(--deep); }
+  .bk-row.strong .bk-val   { color: var(--gold); font-size: 16px; }
+  .bk-row.final  .bk-label { font-weight: 700; font-size: 16px; }
+  .bk-row.final  .bk-val   { color: var(--green); font-family: 'Playfair Display', serif; font-size: 20px; }
+
+  /* ---- Tip ---- */
+  .tip {
+    background: rgba(201,151,58,0.08);
+    border-left: 4px solid var(--gold);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 18px;
+    font-size: 13.5px; color: var(--brown); line-height: 1.7;
+  }
+  .tip strong { font-weight: 600; }
+
+  /* ===================== SUPPLIER TAB ===================== */
+
+  /* Rate bar */
+  .rate-bar {
+    display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    background: var(--cream); border: 1px dashed var(--border);
+    border-radius: 10px; padding: 13px 16px; margin-bottom: 20px;
+  }
+  .rate-bar .ri { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .rate-bar .ri strong { color: var(--brown); }
+  .rate-bar .ri input[type="number"] {
+    width: 90px; height: 40px; font-size: 15px; padding: 0 10px;
+    border-radius: 8px; border: 1.5px solid var(--border); background: white;
+    font-family: 'DM Sans', sans-serif; font-weight: 500;
+  }
+
+  /* Add supplier form */
+  .add-form {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1.5fr auto;
+    gap: 12px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 680px) {
+    .add-form { grid-template-columns: 1fr 1fr; }
+    .add-form .add-btn-wrap { grid-column: 1 / -1; }
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: var(--btn-h);
+    padding: 0 20px;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px; font-weight: 600;
+    cursor: pointer; border: none;
+    transition: opacity 0.15s, background 0.15s;
+    -webkit-appearance: none; white-space: nowrap;
+  }
+  .btn:active { opacity: 0.82; }
+  .btn-gold   { background: var(--gold); color: white; width: 100%; }
+  .btn-ghost  { background: var(--warm-white); color: var(--muted); border: 1.5px solid var(--border); }
+  .btn-sm     { height: 40px; padding: 0 14px; font-size: 13.5px; border-radius: 8px; font-weight: 500; }
+  .btn-danger { background: rgba(139,42,26,0.08); color: var(--red); border: 1px solid rgba(139,42,26,0.18); }
+
+  /* Supplier table */
+  .sup-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+  }
+  table.sup-table {
+    width: 100%; border-collapse: collapse; font-size: 15px;
+    min-width: 560px;
+  }
+  table.sup-table thead tr { background: var(--cream); }
+  table.sup-table th {
+    padding: 13px 16px; text-align: left;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--muted);
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  table.sup-table td {
+    padding: 13px 16px; border-bottom: 1px solid var(--border);
+    color: var(--deep); vertical-align: middle;
+  }
+  table.sup-table tbody tr:last-child td { border-bottom: none; }
+  table.sup-table tbody tr:active td { background: rgba(201,151,58,0.04); }
+
+  .sup-name  { font-weight: 600; }
+  .sup-rmb   { font-variant-numeric: tabular-nums; }
+  .sup-naira { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--brown); }
+  .sup-notes { font-size: 13px; color: var(--muted); }
+
+  .sup-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .use-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 8px 14px; border-radius: 20px;
+    font-size: 13px; font-weight: 600; color: var(--gold);
+    background: rgba(201,151,58,0.1); border: 1px solid rgba(201,151,58,0.3);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    min-height: 38px;
+  }
+  .use-btn:active { background: var(--gold); color: white; }
+
+  .empty-state { text-align: center; padding: 52px 20px; color: var(--muted); }
+  .empty-state .es-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+
+  .sup-count { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  .sup-count strong { color: var(--brown); }
+
+  .edit-input {
+    width: 100%; border: 1.5px solid var(--gold); border-radius: 7px;
+    padding: 6px 10px; font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 500; color: var(--deep); background: white;
+  }
+  .edit-input:focus { outline: none; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: var(--deep); color: white;
+    padding: 13px 24px; border-radius: 28px;
+    font-size: 14px; font-weight: 500;
+    opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    z-index: 999; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="top-bar"></div>
+
+<div class="page-wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-mark">Shop Budget Shoes &mdash; Pricing Tool</div>
+    <h1>Shoe Pricing Calculator</h1>
+    <p>All figures are per pair. Tap any field to edit.</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('calculator', this)">
+      <span class="ti">&#x1F9EE;</span> Pricing Calculator
+    </button>
+    <button class="tab-btn" onclick="switchTab('suppliers', this)">
+      <span class="ti">&#x1F4CB;</span> Supplier List
+    </button>
+  </div>
+
+
+  <!-- ===================== TAB 1: CALCULATOR ===================== -->
+  <div class="tab-pane active" id="tab-calculator">
+
+    <!-- Step 1 -->
+    <div class="card">
+      <div class="section-title">Monthly Overheads <span class="badge">Business-wide</span></div>
+      <div class="g3">
+        <div class="field">
+          <label class="fl">Rent</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="rent" value="500000" step="1000" min="0" inputmode="numeric" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl">Internet</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="internet" value="60000" step="1000" min="0" inputmode="numeric" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl">Electricity</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="electricity" value="250000" step="1000" min="0" inputmode="numeric" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl">Security</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="security" value="120000" step="1000" min="0" inputmode="numeric" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl">Paper / Ink</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="paper" value="70000" step="1000" min="0" inputmode="numeric" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl">Advertising</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="ads" value="3000000" step="10000" min="0" inputmode="numeric" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+      </div>
+
+      <div class="g2" style="margin-top:16px;">
+        <div class="field">
+          <label class="fl">Other Monthly Costs</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="other_opex" value="0" step="1000" min="0" inputmode="numeric" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl">Pairs Sold Per Month</label>
+          <div class="iw">
+            <input type="number" id="monthly_qty" value="3000" step="100" min="1" inputmode="numeric" oninput="calc()" class="has-suffix">
+            <span class="is" style="font-size:12px;">pairs</span>
+          </div>
+          <div class="field-note hint">Min recommended: 3,000</div>
+        </div>
+      </div>
+
+      <div class="opex-strip">
+        <span class="oi">Total monthly opex: <strong id="s-total-opex">&#x20A6;4,000,000</strong></span>
+        <span class="od">|</span>
+        <span class="oi">Opex per pair: <strong id="s-opex-per">&#x20A6;1,333</strong></span>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="card">
+      <div class="section-title">Per Shoe Sourcing Costs <span class="badge">This Pair</span></div>
+
+      <div class="g2">
+        <div class="field">
+          <label class="fl">Supplier Price (RMB)</label>
+          <div class="iw"><span class="ip" style="font-size:12px;">&#165;</span>
+            <input type="number" id="rmb" value="50" step="1" min="0" inputmode="decimal" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl">RMB / Naira Rate</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="fx_rate" value="216" step="1" min="0" inputmode="decimal" oninput="calc(); syncRate()" class="has-both">
+            <span class="is" style="font-size:11px;">/ &#165;</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-note" style="margin:10px 0 16px; padding: 10px 14px; background:var(--cream); border-radius:8px;">
+        Supplier cost = &#165;<span id="n-rmb">50</span> &times; &#x20A6;<span id="n-rate">216</span> = <strong id="n-supplier-cost">&#x20A6;10,800</strong> per pair
+      </div>
+
+      <div class="g2">
+        <div class="field">
+          <label class="fl">Total Clearing / Shipping Fee</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="clearing_total" value="150000" step="1000" min="0" inputmode="numeric" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl">No. of Pairs in Shipment</label>
+          <div class="iw">
+            <input type="number" id="shipment_qty" value="100" step="1" min="1" inputmode="numeric" oninput="calc()" class="has-suffix">
+            <span class="is" style="font-size:12px;">pairs</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-note" style="margin:10px 0 16px; padding: 10px 14px; background:var(--cream); border-radius:8px;">
+        Shipping per pair = &#x20A6;<span id="n-clearing">150,000</span> &divide; <span id="n-shipqty">100</span> = <strong id="n-ship-per">&#x20A6;1,500</strong>
+      </div>
+
+      <div class="g2">
+        <div class="field">
+          <label class="fl">Packaging Per Pair</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="packaging" value="500" step="50" min="0" inputmode="numeric" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl">Other Cost Per Pair</label>
+          <div class="iw"><span class="ip">&#x20A6;</span>
+            <input type="number" id="other_pair" value="0" step="100" min="0" inputmode="numeric" oninput="calc()" class="has-prefix">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Margin -->
+    <div class="card">
+      <div class="section-title">Margin <span class="badge">Per Pair</span></div>
+
+      <div class="margin-header">
+        <div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">Margin per pair</div>
+          <div class="margin-val-display" id="margin-display">&#x20A6;7,500</div>
+          <div class="margin-sub" id="margin-pct-label"></div>
+        </div>
+        <div>
+          <div class="margin-desc" id="margin-trend-label">Standard style</div>
+        </div>
+      </div>
+
+      <input type="range" id="margin_slider" min="7500" max="10000" step="500" value="7500" oninput="onSlider()">
+      <div class="slider-labels">
+        <span>&#x20A6;7,500 &mdash; less trendy</span>
+        <span>&#x20A6;10,000 &mdash; very trendy</span>
+      </div>
+
+      <div class="trend-tags">
+        <div class="trend-tag active" data-val="7500"  onclick="setTag(this)">&#x20A6;7,500</div>
+        <div class="trend-tag"        data-val="8000"  onclick="setTag(this)">&#x20A6;8,000</div>
+        <div class="trend-tag"        data-val="8500"  onclick="setTag(this)">&#x20A6;8,500</div>
+        <div class="trend-tag"        data-val="9000"  onclick="setTag(this)">&#x20A6;9,000</div>
+        <div class="trend-tag"        data-val="9500"  onclick="setTag(this)">&#x20A6;9,500</div>
+        <div class="trend-tag"        data-val="10000" onclick="setTag(this)">&#x20A6;10,000</div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-card">
+      <div class="result-grid">
+        <div class="r-item">
+          <div class="r-label">Cost Price / Pair</div>
+          <div class="r-value" id="r-cost">&#x20A6;0</div>
+          <div class="r-sub">Before margin</div>
+        </div>
+        <div class="r-div"></div>
+        <div class="r-item" style="text-align:center;">
+          <div class="r-label">Margin / Pair</div>
+          <div class="r-value accent" id="r-margin">&#x20A6;0</div>
+          <div class="r-sub" id="r-margin-pct">0%</div>
+        </div>
+        <div class="r-div"></div>
+        <div class="r-item">
+          <div class="r-label">Selling Price / Pair</div>
+          <div class="r-value big accent" id="r-sell">&#x20A6;0</div>
+          <div class="r-sub">Recommended</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Breakdown -->
+    <div class="card">
+      <div class="section-title">Full Breakdown (per pair)</div>
+      <div class="bk-row">
+        <span class="bk-label">Supplier cost (&#165;<span id="b-rmb-show">50</span> &times; &#x20A6;<span id="b-rate-show">216</span>)</span>
+        <span class="bk-val" id="b-supplier">&#x20A6;10,800</span>
+      </div>
+      <div class="bk-row">
+        <span class="bk-label">Shipping per pair (&#x20A6;<span id="b-clear-show">150,000</span> &divide; <span id="b-ship-show">100</span>)</span>
+        <span class="bk-val" id="b-shipping">&#x20A6;1,500</span>
+      </div>
+      <div class="bk-row">
+        <span class="bk-label">Packaging</span>
+        <span class="bk-val" id="b-pack">&#x20A6;500</span>
+      </div>
+      <div class="bk-row">
+        <span class="bk-label">Opex per pair (&#x20A6;<span id="b-opex-total-show">4,000,000</span> &divide; <span id="b-monthly-show">3,000</span>)</span>
+        <span class="bk-val" id="b-opex">&#x20A6;1,333</span>
+      </div>
+      <div class="bk-row">
+        <span class="bk-label">Other cost per pair</span>
+        <span class="bk-val" id="b-other">&#x20A6;0</span>
+      </div>
+      <div class="bk-sep"></div>
+      <div class="bk-row strong">
+        <span class="bk-label">Total Cost Price</span>
+        <span class="bk-val" id="b-cost-total">&#x20A6;14,133</span>
+      </div>
+      <div class="bk-row">
+        <span class="bk-label">+ Margin</span>
+        <span class="bk-val" id="b-margin">&#x20A6;7,500</span>
+      </div>
+      <div class="bk-sep"></div>
+      <div class="bk-row final">
+        <span class="bk-label">Selling Price</span>
+        <span class="bk-val" id="b-sell">&#x20A6;21,633</span>
+      </div>
+    </div>
+
+    <div class="tip">
+      <strong>Note:</strong> The &#x20A6;1,300 opex figure assumes 3,000 pairs/month (&#x20A6;4M &divide; 3,000 = &#x20A6;1,333). At 4,000 pairs/month it drops to &#x20A6;1,000, protecting margin.
+    </div>
+
+  </div><!-- end tab-calculator -->
+
+
+  <!-- ===================== TAB 2: SUPPLIERS ===================== -->
+  <div class="tab-pane" id="tab-suppliers">
+
+    <div class="card">
+      <div class="section-title">Add Supplier</div>
+
+      <div class="add-form">
+        <div class="field">
+          <label class="fl">Supplier Name</label>
+          <input type="text" id="sup-name" placeholder="e.g. Guangzhou Factory A" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="fl">Price (RMB &#165;)</label>
+          <div class="iw"><span class="ip" style="font-size:12px;">&#165;</span>
+            <input type="number" id="sup-rmb" placeholder="50" step="1" min="0" inputmode="decimal" class="has-prefix">
+          </div>
+        </div>
+        <div class="field">
+          <label class="fl">Category / Notes</label>
+          <input type="text" id="sup-notes" placeholder="e.g. Heels, sandals" autocomplete="off">
+        </div>
+        <div class="field add-btn-wrap">
+          <label class="fl" style="visibility:hidden;">Add</label>
+          <button class="btn btn-gold" onclick="addSupplier()">+ Add Supplier</button>
+        </div>
+      </div>
+
+      <!-- Rate bar -->
+      <div class="rate-bar">
+        <span class="ri">RMB rate:
+          <input type="number" id="sup-rate" value="216" step="1" min="0" inputmode="decimal" oninput="renderSuppliers()">
+          &#x20A6;/&#165;
+        </span>
+        <span style="color:var(--border)">|</span>
+        <span class="ri" style="font-size:13px;">Tap <strong>Use &rarr;</strong> to load a supplier into the calculator</span>
+      </div>
+
+      <div class="sup-count" id="sup-count"></div>
+
+      <div class="sup-table-wrap">
+        <table class="sup-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Supplier Name</th>
+              <th>Price (RMB)</th>
+              <th>Cost (&#x20A6;)</th>
+              <th>Notes</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="sup-tbody"></tbody>
+        </table>
+        <div class="empty-state" id="sup-empty">
+          <div class="es-icon">&#x1F4E6;</div>
+          <p>No suppliers yet. Add your first one above.</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end tab-suppliers -->
+
+</div><!-- end page-wrap -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== UTILS ===================== */
+const g   = id => parseFloat(document.getElementById(id).value) || 0;
+const el  = id => document.getElementById(id);
+const fmt = v  => '\u20A6' + Math.round(v).toLocaleString('en-NG');
+const num = v  => Math.round(v).toLocaleString('en-NG');
+
+let toastTimer;
+function showToast(msg) {
+  clearTimeout(toastTimer);
+  const t = el('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ===================== TABS ===================== */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  el('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ===================== CALCULATOR ===================== */
+let marginVal = 7500;
+
+const trendLabels = {
+  7500:  'Standard / basic style',
+  8000:  'Mildly trendy',
+  8500:  'Trending this season',
+  9000:  'Popular seasonal drop',
+  9500:  'High-demand style',
+  10000: 'Very trendy / viral style'
+};
+
+function onSlider() {
+  marginVal = parseInt(el('margin_slider').value);
+  updateMarginUI(); calc();
+}
+function setTag(node) {
+  marginVal = parseInt(node.dataset.val);
+  el('margin_slider').value = marginVal;
+  updateMarginUI(); calc();
+}
+function updateMarginUI() {
+  el('margin-display').textContent = fmt(marginVal);
+  el('margin-trend-label').textContent = trendLabels[marginVal] || '';
+  document.querySelectorAll('.trend-tag').forEach(t =>
+    t.classList.toggle('active', parseInt(t.dataset.val) === marginVal));
+}
+function syncRate() {
+  el('sup-rate').value = g('fx_rate');
+  renderSuppliers();
+}
+
+function calc() {
+  const totalOpex   = g('rent')+g('internet')+g('electricity')+g('security')+g('paper')+g('ads')+g('other_opex');
+  const monthlyQty  = Math.max(1, g('monthly_qty'));
+  const opexPerPair = totalOpex / monthlyQty;
+
+  el('s-total-opex').textContent = fmt(totalOpex);
+  el('s-opex-per').textContent   = fmt(opexPerPair);
+
+  const rmb          = g('rmb');
+  const rate         = g('fx_rate');
+  const supplierCost = rmb * rate;
+  const clearingTotal    = g('clearing_total');
+  const shipQty          = Math.max(1, g('shipment_qty'));
+  const shippingPerPair  = clearingTotal / shipQty;
+  const packaging  = g('packaging');
+  const otherPair  = g('other_pair');
+
+  const costPrice = supplierCost + shippingPerPair + packaging + opexPerPair + otherPair;
+  const sellPrice = costPrice + marginVal;
+  const marginPct = costPrice > 0 ? ((marginVal / costPrice) * 100).toFixed(1) : '0';
+
+  el('n-rmb').textContent           = rmb;
+  el('n-rate').textContent          = num(rate);
+  el('n-supplier-cost').textContent = fmt(supplierCost);
+  el('n-clearing').textContent      = num(clearingTotal);
+  el('n-shipqty').textContent       = num(shipQty);
+  el('n-ship-per').textContent      = fmt(shippingPerPair);
+
+  el('r-cost').textContent       = fmt(costPrice);
+  el('r-margin').textContent     = fmt(marginVal);
+  el('r-margin-pct').textContent = marginPct + '% on cost';
+  el('r-sell').textContent       = fmt(sellPrice);
+  el('margin-pct-label').textContent = marginPct + '% on cost';
+
+  el('b-rmb-show').textContent        = rmb;
+  el('b-rate-show').textContent       = num(rate);
+  el('b-clear-show').textContent      = num(clearingTotal);
+  el('b-ship-show').textContent       = num(shipQty);
+  el('b-opex-total-show').textContent = num(totalOpex);
+  el('b-monthly-show').textContent    = num(monthlyQty);
+  el('b-supplier').textContent  = fmt(supplierCost);
+  el('b-shipping').textContent  = fmt(shippingPerPair);
+  el('b-pack').textContent      = fmt(packaging);
+  el('b-opex').textContent      = fmt(opexPerPair);
+  el('b-other').textContent     = fmt(otherPair);
+  el('b-cost-total').textContent = fmt(costPrice);
+  el('b-margin').textContent    = fmt(marginVal);
+  el('b-sell').textContent      = fmt(sellPrice);
+}
+
+/* ===================== SUPPLIERS ===================== */
+let suppliers = [];
+let editingId = null;
+
+function addSupplier() {
+  const name  = el('sup-name').value.trim();
+  const rmb   = parseFloat(el('sup-rmb').value);
+  const notes = el('sup-notes').value.trim();
+  if (!name)          { showToast('Please enter a supplier name'); return; }
+  if (!rmb || rmb<=0) { showToast('Please enter a valid RMB price'); return; }
+  suppliers.push({ id: Date.now(), name, rmb, notes });
+  el('sup-name').value  = '';
+  el('sup-rmb').value   = '';
+  el('sup-notes').value = '';
+  el('sup-name').focus();
+  renderSuppliers();
+  showToast('Supplier added \u2713');
+}
+
+function deleteSupplier(id) {
+  suppliers = suppliers.filter(s => s.id !== id);
+  renderSuppliers();
+}
+
+function useSupplier(rmb) {
+  el('rmb').value = rmb;
+  calc();
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  el('tab-calculator').classList.add('active');
+  document.querySelectorAll('.tab-btn')[0].classList.add('active');
+  showToast('Loaded \u00A5' + rmb + ' into the calculator');
+}
+
+function startEdit(id)  { editingId = id; renderSuppliers(); }
+function cancelEdit()   { editingId = null; renderSuppliers(); }
+
+function saveEdit(id) {
+  const s = suppliers.find(x => x.id === id);
+  if (!s) return;
+  const nameEl  = document.querySelector(`[data-edit-name="${id}"]`);
+  const rmbEl   = document.querySelector(`[data-edit-rmb="${id}"]`);
+  const notesEl = document.querySelector(`[data-edit-notes="${id}"]`);
+  const newRmb  = parseFloat(rmbEl.value);
+  if (!nameEl.value.trim() || !newRmb || newRmb <= 0) { showToast('Name and price are required'); return; }
+  s.name = nameEl.value.trim(); s.rmb = newRmb; s.notes = notesEl.value.trim();
+  editingId = null;
+  renderSuppliers();
+  showToast('Saved \u2713');
+}
+
+function renderSuppliers() {
+  const rate  = parseFloat(el('sup-rate').value) || 216;
+  const tbody = el('sup-tbody');
+  const empty = el('sup-empty');
+  const count = el('sup-count');
+  tbody.innerHTML = '';
+
+  if (suppliers.length === 0) {
+    empty.style.display = 'block'; count.textContent = ''; return;
+  }
+  empty.style.display = 'none';
+  count.innerHTML = '<strong>' + suppliers.length + '</strong> supplier' + (suppliers.length !== 1 ? 's' : '') + ' on record';
+
+  suppliers.forEach((s, i) => {
+    const naira = s.rmb * rate;
+    const tr = document.createElement('tr');
+    if (editingId === s.id) {
+      tr.innerHTML = `
+        <td style="color:var(--muted);font-size:13px;">${i+1}</td>
+        <td><input class="edit-input" data-edit-name="${s.id}" value="${esc(s.name)}" style="min-width:120px;"></td>
+        <td><input class="edit-input" type="number" inputmode="decimal" data-edit-rmb="${s.id}" value="${s.rmb}" style="width:80px;"></td>
+        <td class="sup-naira">${fmt(naira)}</td>
+        <td><input class="edit-input" data-edit-notes="${s.id}" value="${esc(s.notes)}" style="min-width:100px;"></td>
+        <td><div class="sup-actions">
+          <button class="btn btn-gold btn-sm" onclick="saveEdit(${s.id})">Save</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelEdit()">Cancel</button>
+        </div></td>`;
+    } else {
+      tr.innerHTML = `
+        <td style="color:var(--muted);font-size:13px;">${i+1}</td>
+        <td class="sup-name">${esc(s.name)}</td>
+        <td class="sup-rmb">&#165;${s.rmb.toLocaleString()}</td>
+        <td class="sup-naira">${fmt(naira)}</td>
+        <td class="sup-notes">${esc(s.notes)||'<span style="color:var(--border);">&mdash;</span>'}</td>
+        <td><div class="sup-actions">
+          <span class="use-btn" onclick="useSupplier(${s.rmb})">Use &rarr;</span>
+          <button class="btn btn-ghost btn-sm" onclick="startEdit(${s.id})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSupplier(${s.id})">Delete</button>
+        </div></td>`;
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+['sup-name','sup-rmb','sup-notes'].forEach(id => {
+  el(id).addEventListener('keydown', e => { if (e.key === 'Enter') addSupplier(); });
+});
+
+/* ===================== INIT ===================== */
+updateMarginUI();
+calc();
+renderSuppliers();
+</script>
+</body>
+</html>
